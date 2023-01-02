@@ -153,6 +153,12 @@ namespace c10 {
         return data_type_.itemsize();
     }
 
+    void set_sizes_contiguous(IntArrayRef new_size) {
+            sizes_and_strides_.set_sizes(new_size);
+            refresh_numel();
+            //empty_tensor_restride(MemoryFormat::Contiguous); // calls refresh_contiguous()
+        }
+
     void set_sizes_and_strides(
             IntArrayRef new_size,
             IntArrayRef new_stride,

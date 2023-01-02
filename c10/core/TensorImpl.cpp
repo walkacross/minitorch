@@ -34,7 +34,7 @@ namespace c10 {
 
         // XXX: if updating keyset logic here also update
         // _change_backend_component_keys
-        bool inference_mode = true;
+        bool inference_mode = false;//true;
 
         // TODO: be more explicit about the full key set at call sites so we
         // don't have to keep recomputing it here
