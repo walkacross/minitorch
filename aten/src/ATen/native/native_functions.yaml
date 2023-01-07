@@ -1,0 +1,6 @@
+- func: as_strided(Tensor(a) self, SymInt[] size, SymInt[] stride, SymInt? storage_offset=None) -> Tensor(a)
+  variants: function, method
+  dispatch:
+    ZeroTensor, CPU, CUDA: as_strided_tensorimpl
+  device_check: NoCheck
+  device_guard: False

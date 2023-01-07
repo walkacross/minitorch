@@ -1,0 +1,31 @@
+#include <ATen/Tensor.h>
+#include <ATen/core/dispatch/Dispatcher.h>
+
+#include <ATen/ops/as_strided.h>
+
+
+
+STATIC_CONST_STR_OUT_OF_LINE_FOR_WIN_CUDA(as_strided, name, "aten::as_strided")
+STATIC_CONST_STR_OUT_OF_LINE_FOR_WIN_CUDA(as_strided, overload_name, "")
+STATIC_CONST_STR_OUT_OF_LINE_FOR_WIN_CUDA(as_strided, schema_str, "as_strided(Tensor(a) self, SymInt[] size, SymInt[] stride, SymInt? storage_offset=None) -> Tensor(a)")
+
+// aten::as_strided(Tensor(a) self, SymInt[] size, SymInt[] stride, SymInt? storage_offset=None) -> Tensor(a)
+static C10_NOINLINE c10::TypedOperatorHandle<as_strided::schema> create_as_strided_typed_handle() {
+    return c10::Dispatcher::singleton()
+            .findSchemaOrThrow(as_strided::name, as_strided::overload_name)
+            .typed<as_strided::schema>();
+}
+
+// aten::as_strided(Tensor(a) self, SymInt[] size, SymInt[] stride, SymInt? storage_offset=None) -> Tensor(a)
+at::Tensor as_strided::call(const at::Tensor & self, c10::SymIntArrayRef size, c10::SymIntArrayRef stride, c10::optional<c10::SymInt> storage_offset) {
+
+    static auto op = create_as_strided_typed_handle();
+    return op.call(self, size, stride, storage_offset);
+}
+
+// aten::as_strided(Tensor(a) self, SymInt[] size, SymInt[] stride, SymInt? storage_offset=None) -> Tensor(a)
+at::Tensor as_strided::redispatch(c10::DispatchKeySet dispatchKeySet, const at::Tensor & self, c10::SymIntArrayRef size, c10::SymIntArrayRef stride, c10::optional<c10::SymInt> storage_offset) {
+
+    static auto op = create_as_strided_typed_handle();
+    return op.redispatch(dispatchKeySet, self, size, stride, storage_offset);
+}

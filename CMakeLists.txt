@@ -26,4 +26,6 @@ message(STATUS "minitorch unittest flag: ${ENABLE_UNITTEST}")
 message(STATUS "======================================================")
 
 # generate library
+include_directories(BEFORE ${PROJECT_SOURCE_DIR}/aten/src/)
 add_subdirectory(c10)
+add_subdirectory(aten/src/ATen)

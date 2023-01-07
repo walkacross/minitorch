@@ -9,9 +9,6 @@ namespace c10 {
 
 // Does not delete anything
 void deleteNothing(void*);
-void deleteNothing(void*){
-
-        }
 
 // A detail::UniqueVoidPtr is an owning smart pointer like unique_ptr, but
 // with three major differences:

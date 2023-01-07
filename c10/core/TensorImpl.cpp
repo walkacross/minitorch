@@ -29,6 +29,8 @@ namespace c10 {
               data_type_(data_type),
               device_opt_(device_opt) {
 
+        init_bitfields();
+
         if (!key_set.empty()) {
         }
 
@@ -64,6 +66,25 @@ namespace c10 {
         }
         // we would also like to check that non-cpu devices have an index, but some
         // Caffe2 operators create Storages with default devices.
+    }
+
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init)
+    TensorImpl::TensorImpl(
+            ImplType type,
+            Storage&& storage,
+            DispatchKeySet key_set,
+            const caffe2::TypeMeta data_type)
+            : storage_(std::move(storage)),
+              storage_offset_(0),
+              numel_(0),
+              data_type_(data_type),
+              device_opt_(storage_.device()),
+              key_set_(key_set - c10::python_ks) { // See [Note: Python key removal]
+        init_bitfields();
+        // Inference tensor doesn't have version counter.
+        if (!is_inference()) {
+            //version_counter_ = VariableVersion(/*version=*/0);
+        }
     }
 
 } //namespace c10

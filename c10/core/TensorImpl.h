@@ -3,6 +3,7 @@
 #include <c10/core/Storage.h>
 #include <c10/core/DispatchKeySet.h>
 #include <c10/core/impl/SizesAndStrides.h>
+#include <c10/core/MemoryFormat.h>
 #include <c10/util/typeid.h>
 #include <c10/core/Device.h>
 #include <c10/util/intrusive_ptr.h>
@@ -50,6 +51,13 @@ namespace c10 {
             Storage&& storage,
             DispatchKeySet,
             const caffe2::TypeMeta data_type);
+
+    // See Note [Enum ImplType]
+    TensorImpl(
+                ImplType,
+                Storage&& storage,
+                DispatchKeySet,
+                const caffe2::TypeMeta data_type);
 
     private:
     // This constructor is private, because the data_type is redundant with
@@ -107,6 +115,10 @@ namespace c10 {
         return storage_offset_;
     }
 
+    const Storage& storage() const {
+            return storage_;
+        }
+
     public:
     bool is_cpu() const {
         // Note: we cannot rely on dispatch keys to determine the device type
@@ -156,7 +168,7 @@ namespace c10 {
     void set_sizes_contiguous(IntArrayRef new_size) {
             sizes_and_strides_.set_sizes(new_size);
             refresh_numel();
-            //empty_tensor_restride(MemoryFormat::Contiguous); // calls refresh_contiguous()
+            empty_tensor_restride(MemoryFormat::Contiguous); // calls refresh_contiguous()
         }
 
     void set_sizes_and_strides(
@@ -209,6 +221,47 @@ namespace c10 {
         return c10::multiply_integers(sizes_and_strides_.sizes_arrayref());
     }
 
+    void empty_tensor_restride(MemoryFormat memory_format) {
+
+            switch (memory_format) {
+                case MemoryFormat::Contiguous: {
+                    // dim_ is a virtual call, don't repeat it
+                    const auto dim_ = dim();
+                    sizes_and_strides_.resize(dim_);
+                    if (dim_ > 0) {
+                        const auto last_idx = dim_ - 1;
+                        sizes_and_strides_.stride_at_unchecked(last_idx) = 1;
+                        for (auto i = last_idx - 1; i >= 0; --i) {
+                            sizes_and_strides_.stride_at_unchecked(i) =
+                                    sizes_and_strides_.stride_at_unchecked(i + 1) *
+                                    std::max<int64_t>(
+                                            sizes_and_strides_.size_at_unchecked(i + 1), 1);
+                        }
+                    }
+                    break;
+                }
+                case MemoryFormat::ChannelsLast: {
+                    set_sizes_and_strides(sizes(), get_channels_last_strides_2d(sizes()));
+                    break;
+                }
+                case MemoryFormat::ChannelsLast3d: {
+                    set_sizes_and_strides(sizes(), get_channels_last_strides_3d(sizes()));
+                    break;
+                }
+                case MemoryFormat::Preserve:{
+                    // Cleaning warning messages, no need to break as TORCH_CHECK(false)
+                    // terminates flow.
+                    // break;
+                    }
+                case MemoryFormat::NumOptions:{
+
+                }
+            }
+            // recompute contiguous flag, as currently NHWC/NCHW flags are not mutually
+            // exclusive see #24090
+            //refresh_contiguous();
+        }
+
     protected:
     /**
      * Recompute the cached numel of a tensor.  Call this if you modify
@@ -229,5 +282,44 @@ namespace c10 {
             numel_ = compute_numel();
         }
 
+    inline void init_bitfields() {
+            is_contiguous_ = true;
+            is_channels_last_ = false;
+            is_channels_last_contiguous_ = false;
+            is_channels_last_3d_ = false;
+            is_channels_last_3d_contiguous_ = false;
+            is_non_overlapping_and_dense_ = true;
+        }
+
+    // Tensor is contiguous
+    bool is_contiguous_ : 1;
+
+    // Tensor is a subclass that does not permit storage access.
+    bool storage_access_should_throw_ : 1;
+
+        // Tensor is stored in the channels last 2d memory format, when dimensions
+        // order is (N)CHW and C-strides < W-strides < H-strides (< N-strides)
+        // (If size of any dimension is equal to 1, this dimension strides value
+        // is not taken into account).
+    bool is_channels_last_ : 1;
+
+        // Channels last contiguous tensor is channel last tensor which occupies
+        // contiguous memory block.
+    bool is_channels_last_contiguous_ : 1;
+
+        // Tensor is stored in the channels last 3d memory format, when dimensions
+        // order is (N)CDHW and C-strides < W-strides < H-strides < D - strides (<
+        // N-strides) (If size of any dimension is equal to 1, this dimension strides
+        // value is not taken into account).
+    bool is_channels_last_3d_ : 1;
+
+        // Channels last 3d contiguous tensor is channel last 3d tensor which occupies
+        // contiguous memory block.
+    bool is_channels_last_3d_contiguous_ : 1;
+
+        // Dense tensor is the tensor that store values in a contiguous block of
+        // memory. Non-overlapping tensor is the tensor in which elements occupy
+        // individual non-repetitive memory.
+    bool is_non_overlapping_and_dense_ : 1;
     };
 } //namespace c10
